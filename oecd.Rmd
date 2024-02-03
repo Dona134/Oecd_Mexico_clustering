@@ -1,0 +1,126 @@
+---
+title: "Oecd_Mexico_analysis"
+output: html_document
+date: "2024-02-03"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document.
+
+Loading the required libraries first:
+
+```{r cars}
+install.packages("car")
+library(haven)
+library(car)
+```
+
+```{r}
+oecd = read.table("oecd_mexico.txt", header = TRUE, dec = ",")
+rownames(oecd)=oecd$region
+oecd<-oecd[,-1]
+head(oecd)
+```
+
+```{r}
+summary(oecd)
+```
+
+Standardizing the columns of our data frame (making each column have a mean of 0 and a standard deviation of 1). This ensures that all variables contribute equally to the analysis and prevents variables with larger scales from dominating the results.
+
+```{r}
+summary(scale(oecd))
+```
+
+## Performing hierarchical clustering on the normalized data
+
+Calculating the Euclidean distances between rows of the `scale(oecd)`, creating a distance matrix. The resulting **`ds`** object represents the pairwise distances between rows.
+
+```{r}
+ds<-dist(scale(oecd))
+print(ds)
+```
+
+The next chunk of code defines a function named **`agglo`** that takes a hierarchical clustering result (**`hc`**) as an argument and returns a data frame summarizing the clustering.
+
+```{r}
+agglo <- function(hc){
+      data.frame(row.names=paste0("Cluster",seq_along(hc$height)),
+            height=hc$height,
+            components=ifelse(hc$merge<0, 
+  hc$labels[abs(hc$merge)], paste0("Cluster",hc$merge)),
+                  stringsAsFactors=FALSE) }
+```
+
+The next code results in a multi-panel plot where the first panel contains the dendrogram of the hierarchical clustering using average linkage, and the second panel displays the summary information about the clustering obtained from the **`agglo`** function.
+
+```{r}
+opar <- par(mfrow = c(1, 3))                  
+### average linkage
+h1<-hclust(ds, method="average")
+agglo(h1)
+```
+
+```{r}
+plot(h1, main="average linkage")
+```
+
+Let's repeat the same for complete and ward linkage methods.
+
+```{r}
+### complete linkage
+h2<-hclust(ds, method="complete")
+agglo(h2)
+
+```
+
+```{r}
+plot(h2, main="complete linkage")
+```
+
+Legame ward:
+
+```{r}
+### legame ward
+h3<-hclust(ds, method="ward.D2")
+agglo(h3)
+```
+
+```{r}
+plot(h3, main="Ward linkage")
+```
+
+Assigning cluster memberships for k=5 using cutree for each linkage method. This comparison allows us to assess the similarity or dissimilarity between the cluster assignments obtained from two linkage methods for 5 clusters.
+
+```{r}
+average <- cutree(h1, k=5)
+complete<- cutree(h2, k=5)
+ward<- cutree(h3, k=5)
+table(average,complete)
+```
+
+Looking at the diagonal cells (from top-left to bottom-right), these represent observations that are assigned to the same cluster by both methods. Off-diagonal cells represent observations that are assigned to different clusters by the two methods.
+
+```{r}
+table(average,ward)
+```
+
+```{r}
+table(complete,ward)
+```
+
+```{r}
+### dendrograms
+plot(h1, main="Complete linkage")
+rect.hclust(h2, 5)
+h2cluster <- cutree(h2, k=5)
+h2cluster
+plot(oecd, col=h2cluster, main="complete likage")
+```
